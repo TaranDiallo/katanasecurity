@@ -15,7 +15,7 @@
     </head>
     <body>
     <h1 class="text-3xl font-bold text-center">
-        Hello, welcome to Katana Security !
+        Welcome to Katana Security !
     </h1>
     </body>
 </html>
