@@ -3,25 +3,25 @@ name: Deploy to server
 on:
   push:
     branches:
-      - main
-      - preprod  # Déclenche l'action pour les branches main et preprod
+      - main        # Déclenche l'action pour la branche principale (production)
+      - preprod     # Déclenche l'action pour la branche préproduction
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Exécuter sur un runner Ubuntu
 
     steps:
-      # 1. Checkout Code
+      # 1. Checkout du code
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # 2. Setup PHP
+      # 2. Installation de PHP
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: 8.3
 
-      # 3. Cache Composer Dependencies
+      # 3. Mise en cache des dépendances Composer
       - name: Cache Composer Dependencies
         uses: actions/cache@v3
         with:
@@ -30,25 +30,25 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-composer-
 
-      # 4. Install Composer Dependencies
+      # 4. Installation des dépendances Composer
       - name: Install Composer Dependencies
         run: composer install --optimize-autoloader --no-dev --no-progress --no-interaction --prefer-dist
 
-      # 5. Setup Node
+      # 5. Installation de Node.js
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: '20'
 
-      # 6. Install NPM Dependencies
+      # 6. Installation des dépendances NPM
       - name: Install NPM Dependencies
         run: npm install
 
-      # 7. Build NPM Assets
+      # 7. Construction des assets NPM
       - name: Build NPM Assets
         run: npm run build
 
-      # 8. Synchronize Files To Server (Branch-based deployment)
+      # 8. Synchronisation des fichiers vers le serveur
       - name: Synchronize Files To Server
         uses: easingthemes/ssh-deploy@v2.1.5
         env:
@@ -56,9 +56,9 @@ jobs:
           SOURCE: "."
           REMOTE_HOST: ${{ secrets.VPS_HOST }}
           REMOTE_USER: ${{ secrets.VPS_USER }}
-          TARGET: ${{ secrets.TARGET_PATH }}  # Variable pour déterminer le chemin en fonction de la branche
+          TARGET: ${{ secrets.TARGET_PATH }}  # Variable dynamique en fonction de la branche
 
-      # 9. Run Remote/Artisan Commands
+      # 9. Exécution des commandes Artisan à distance
       - name: Run Remote/Artisan Commands
         uses: appleboy/ssh-action@v0.1.6
         with:
@@ -66,15 +66,14 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-
           # Choisir le répertoire de déploiement en fonction de la branche
             if [ "${GITHUB_REF##*/}" == "main" ]; then
-              DEPLOY_PATH="/var/www/katanasecurity"  # Domaine principal
+              DEPLOY_PATH="/var/www/katanasecurity"  # Domaine principal pour production
             elif [ "${GITHUB_REF##*/}" == "preprod" ]; then
               DEPLOY_PATH="/var/www/devkatana/katanasecurity"  # Sous-domaine préproduction
             fi
 
-          # Exécuter les commandes artisan sur le bon répertoire
+          # Se déplacer dans le bon répertoire et exécuter les commandes Artisan
             cd $DEPLOY_PATH
             php artisan migrate --force
             php artisan config:cache
