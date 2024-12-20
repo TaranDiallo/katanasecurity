@@ -56,7 +56,17 @@ jobs:
       - name: Build NPM Assets
         run: npm run build
 
-      # 9. Synchronize Files To Server
+      # 9. Define Target Directory Based on Branch
+      - name: Set Target Directory
+        id: set_target
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "TARGET_DIR=/var/www/katanasecurite/main" >> $GITHUB_ENV
+          elif [ "${{ github.ref }}" == "refs/heads/preprod" ]; then
+            echo "TARGET_DIR=/var/www/katanasecurite/preprod" >> $GITHUB_ENV
+          fi
+
+      # 10. Synchronize Files To Server
       - name: Synchronize Files To Server
         uses: easingthemes/ssh-deploy@v2.1.5
         env:
@@ -64,9 +74,13 @@ jobs:
           SOURCE: "."
           REMOTE_HOST: ${{ secrets.VPS_HOST }}
           REMOTE_USER: ${{ secrets.VPS_USER }}
-          TARGET: "/var/www/katanasecurite/main"
+          TARGET: "${{ env.TARGET_DIR }}"
+        with:
+          REMOTE_HOST: ''
+          REMOTE_USER: ''
+          SSH_PRIVATE_KEY: ''
 
-      # 10. Run Remote/Artisan Commands
+      # 11. Run Remote/Artisan Commands
       - name: Run Remote/Artisan Commands
         uses: appleboy/ssh-action@v0.1.6
         with:
@@ -74,7 +88,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /var/www/katanasecurite/main
+            cd ${{ env.TARGET_DIR }}
             php artisan migrate --force
             php artisan config:cache
             php artisan route:cache
@@ -82,4 +96,3 @@ jobs:
             php artisan optimize
             php artisan optimize:clear
             php artisan event:cache
-            
