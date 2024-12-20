@@ -1,27 +1,26 @@
-name: Deploy to server
-
+name: Deploy to production Server
 on:
   push:
     branches:
-      - main        # Déclenche l'action pour la branche principale (production)
-      - preprod     # Déclenche l'action pour la branche préproduction
+      - main
+      - preprod
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest  # Exécuter sur un runner Ubuntu
+    runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout du code
+      # 1. Checkout Code
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # 2. Installation de PHP
+      # 2. Setup PHP
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: 8.3
 
-      # 3. Mise en cache des dépendances Composer
+      # 3. Cache Composer Dependencies
       - name: Cache Composer Dependencies
         uses: actions/cache@v3
         with:
@@ -30,25 +29,34 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-composer-
 
-      # 4. Installation des dépendances Composer
+      # 4. Install Composer Dependencies
       - name: Install Composer Dependencies
         run: composer install --optimize-autoloader --no-dev --no-progress --no-interaction --prefer-dist
 
-      # 5. Installation de Node.js
+      # 5. Setup Node
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: '20'
 
-      # 6. Installation des dépendances NPM
+      # 6. Cache NPM Dependencies
+      - name: Cache NPM Dependencies
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      # 7. Install NPM Dependencies
       - name: Install NPM Dependencies
         run: npm install
 
-      # 7. Construction des assets NPM
+      # 8. Build NPM Assets
       - name: Build NPM Assets
         run: npm run build
 
-      # 8. Synchronisation des fichiers vers le serveur
+      # 9. Synchronize Files To Server
       - name: Synchronize Files To Server
         uses: easingthemes/ssh-deploy@v2.1.5
         env:
@@ -56,9 +64,9 @@ jobs:
           SOURCE: "."
           REMOTE_HOST: ${{ secrets.VPS_HOST }}
           REMOTE_USER: ${{ secrets.VPS_USER }}
-          TARGET: ${{ secrets.TARGET_PATH }}  # Variable dynamique en fonction de la branche
+          TARGET: "/var/www/katanasecurite/main"
 
-      # 9. Exécution des commandes Artisan à distance
+      # 10. Run Remote/Artisan Commands
       - name: Run Remote/Artisan Commands
         uses: appleboy/ssh-action@v0.1.6
         with:
@@ -66,17 +74,12 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-          # Choisir le répertoire de déploiement en fonction de la branche
-            if [ "${GITHUB_REF##*/}" == "main" ]; then
-              DEPLOY_PATH="/var/www/katanasecurity"  # Domaine principal pour production
-            elif [ "${GITHUB_REF##*/}" == "preprod" ]; then
-              DEPLOY_PATH="/var/www/devkatana/katanasecurity"  # Sous-domaine préproduction
-            fi
-
-          # Se déplacer dans le bon répertoire et exécuter les commandes Artisan
-            cd $DEPLOY_PATH
+            cd /var/www/katanasecurite/main
             php artisan migrate --force
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
             php artisan optimize
+            php artisan optimize:clear
+            php artisan event:cache
+            
