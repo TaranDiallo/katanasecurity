@@ -1,8 +1,9 @@
-name: Deploy to production server
+name: Deploy to production Server
 on:
   push:
     branches:
       - main
+      - preprod
 
 jobs:
   deploy:
@@ -39,13 +40,13 @@ jobs:
           node-version: '20'
 
       # 6. Cache NPM Dependencies
-      #- name: Cache NPM Dependencies
-      #  uses: actions/cache@v3
-      #  with:
-      #    path: node_modules
-      #    key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-      #    restore-keys: |
-      #      ${{ runner.os }}-npm-
+      - name: Cache NPM Dependencies
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
       # 7. Install NPM Dependencies
       - name: Install NPM Dependencies
@@ -63,7 +64,7 @@ jobs:
           SOURCE: "."
           REMOTE_HOST: ${{ secrets.VPS_HOST }}
           REMOTE_USER: ${{ secrets.VPS_USER }}
-          TARGET: "/var/www/katanasecurity"
+          TARGET: "/var/www/katanasecurite/main"
 
       # 10. Run Remote/Artisan Commands
       - name: Run Remote/Artisan Commands
@@ -73,9 +74,12 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /var/www/katanasecurity
+            cd /var/www/katanasecurite/main
             php artisan migrate --force
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
             php artisan optimize
+            php artisan optimize:clear
+            php artisan event:cache
+            
